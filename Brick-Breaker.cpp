@@ -11,16 +11,15 @@ sf::Sprite paddle;
 sf::Texture ballTexture;
 sf::Sprite ball;
 
-// Game state variables
+
 bool startBall = false;
-int direction = 4; // 1: Top Right, 2: Top Left, 3: Bottom Left, 4: Bottom Right
+int direction = 4; 
 int bricksLeft = 0;
 int score = 0;
 bool gameWon = false;
 bool gameLost = false;
 const float ballSpeed = 5.0f;
 
-// Brick-related variables
 struct Brick 
 {
     sf::RectangleShape shape;
@@ -28,7 +27,7 @@ struct Brick
     sf::Color topColor = sf::Color::Red;
     sf::Color bottomColor = sf::Color::Red;
 
-    Brick() : isDestroyed(false) {} // Constructor to ensure initialization
+    Brick() : isDestroyed(false) {} 
 };
 
 std::vector<Brick> bricks;
@@ -39,7 +38,7 @@ const float BRICK_HEIGHT = 30.f;
 const float BRICK_PADDING = 10.f;
 const float BRICK_TOP_OFFSET = 50.f;
 
-// Text display
+
 sf::Font font;
 sf::Text scoreText;
 sf::Text gameOverText;
@@ -48,22 +47,22 @@ sf::Text restartText;
 /*----------------------------------------------------Initialization Functions------------------------------------------*/
 
 bool initializeFont() {
-    // Try loading from Windows fonts first
+
     if (font.loadFromFile("C:/Windows/Fonts/Arial.ttf")) {
         return true;
     }
 
-    // Then try bundled font
+
     if (font.loadFromFile("arial.ttf")) {
         return true;
     }
 
-    // Try common alternative locations
+
     const std::vector<std::string> fontPaths = {
         "fonts/arial.ttf",
         "resources/arial.ttf",
         "C:/Windows/Fonts/arial.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSans.ttf"  // Linux fallback
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf"  
     };
 
     for (const auto& path : fontPaths) {
@@ -77,19 +76,18 @@ bool initializeFont() {
 }
 
 bool initializeSprites() {
-    // Initialize font
+
     if (!initializeFont()) {
         std::cerr << "Failed to initialize font! Text will not be displayed." << std::endl;
     }
 
-    // Set up score text
     scoreText.setFont(font);
     scoreText.setCharacterSize(24);
     scoreText.setFillColor(sf::Color::White);
     scoreText.setPosition(20.f, window.getSize().y - 40.f);
     scoreText.setString("Score: 0");
 
-    // Set up game over text
+
     gameOverText.setFont(font);
     gameOverText.setCharacterSize(48);
     gameOverText.setFillColor(sf::Color::Yellow);
@@ -99,7 +97,7 @@ bool initializeSprites() {
         (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f
     );
 
-    // Set up restart instructions text
+
     restartText.setFont(font);
     restartText.setCharacterSize(24);
     restartText.setFillColor(sf::Color::White);
@@ -140,18 +138,17 @@ bool initializeSprites() {
         for (int col = 0; col < BRICK_COLUMNS; ++col) {
             Brick brick;
 
-            // Calculate position
+
             float x = col * (BRICK_WIDTH + BRICK_PADDING) + BRICK_PADDING;
             float y = row * (BRICK_HEIGHT + BRICK_PADDING) + BRICK_TOP_OFFSET;
 
-            // Set up the brick shape
             brick.shape.setSize(sf::Vector2f(BRICK_WIDTH, BRICK_HEIGHT));
             brick.shape.setPosition(x, y);
             brick.shape.setOutlineThickness(2.f);
             brick.shape.setOutlineColor(sf::Color::Black);
 
-            // Create gradient colors based on row
-            float hue = (row * 40.f); // Vary hue by row (0-200 range)
+
+            float hue = (row * 40.f); 
             brick.topColor = sf::Color(
                 static_cast<sf::Uint8>(255 * (0.7f + 0.3f * sin(hue * 3.14159265f / 180.f))),
                 static_cast<sf::Uint8>(255 * (0.7f + 0.3f * sin((hue + 120) * 3.14159265f / 180.f))),
