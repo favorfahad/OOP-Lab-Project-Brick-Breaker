@@ -1,247 +1,437 @@
-#include<iostream>
-#include"conio.h"
-#include"dos.h"
-#include"stdlib.h"
-#include<string>
-#include"windows.h"
-#include<time.h>
+#include <SFML/Graphics.hpp>
+#include <iostream>
+#include <vector>
+#include <cmath>
 
-#define SCREEN_WIDTH 52
-#define SCREEN_HEIGHT 20
+/*----------------------------------------------------Global Variables---------------------------------------------------*/
+sf::RenderWindow window(sf::VideoMode(1000, 800), "Breakout Game");
+const float moveSpeed = 5.3f;
+sf::Texture paddleTexture;
+sf::Sprite paddle;
+sf::Texture ballTexture;
+sf::Sprite ball;
 
-#define MIN_X 2
-#define MIN_Y 2
-#define MAX_X 49
-#define MAX_Y 19 
+// Game state variables
+bool startBall = false;
+int direction = 4; // 1: Top Right, 2: Top Left, 3: Bottom Left, 4: Bottom Right
+int bricksLeft = 0;
+int score = 0;
+bool gameWon = false;
+bool gameLost = false;
+const float ballSpeed = 5.0f;
 
-using namespace std;    
+// Brick-related variables
+struct Brick 
+{
+    sf::RectangleShape shape;
+    bool isDestroyed = false;
+    sf::Color topColor = sf::Color::Red;
+    sf::Color bottomColor = sf::Color::Red;
 
-HANDLE console = GetStdHandle(STD_OUTPUT_HANDLE);
-COORD CursorPosition;
-
-int Bricks[24][2] = { 
-{2,7}, {2,12}, {2,17}, {2,22}, {2,27}, {2,32}, {2,37}, {2, 42},
-{4,7}, {4,12}, {4,17}, {4,22}, {4,27}, {4,32}, {4,37}, {4, 42},
-{6,7}, {6,12}, {6,17}, {6,22}, {6,27}, {6,32}, {6,37}, {6, 42}
+    Brick() : isDestroyed(false) {} // Constructor to ensure initialization
 };
 
-int visibleBricks[24] = {1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1};
-int sliderPosition[2] = {18, 22};
-int ballPosition[2] = {17, 26};
-int startball = 0;
-int direction = 1; //1 for Top Right, 2 for Top Left, 3 for Bottom left, 4 for Bottom right
-int bricksleft = 24;
-int win = 0;
-int loose = 0;
-int score = 0;
+std::vector<Brick> bricks;
+const int BRICK_ROWS = 6;
+const int BRICK_COLUMNS = 10;
+const float BRICK_WIDTH = 90.f;
+const float BRICK_HEIGHT = 30.f;
+const float BRICK_PADDING = 10.f;
+const float BRICK_TOP_OFFSET = 50.f;
 
-void gotoxy(int x, int y) {
-    CursorPosition.X = x;
-    CursorPosition.Y = y;
-    SetConsoleCursorPosition(console, CursorPosition);
-}
+// Text display
+sf::Font font;
+sf::Text scoreText;
+sf::Text gameOverText;
+sf::Text restartText;
 
-void ScoreBoard(int score) {
-	gotoxy(0, 22);
-	cout << "Score: " << score;
-}
+/*----------------------------------------------------Initialization Functions------------------------------------------*/
 
-void setcursor(bool visible, DWORD size) {
-    if (size == 0) {
-        size = 20;
+bool initializeFont() {
+    // Try loading from Windows fonts first
+    if (font.loadFromFile("C:/Windows/Fonts/Arial.ttf")) {
+        return true;
     }
-    CONSOLE_CURSOR_INFO lpCursor;
-    lpCursor.bVisible = visible;
-    lpCursor.dwSize = size;
-    SetConsoleCursorInfo(console, &lpCursor);
+
+    // Then try bundled font
+    if (font.loadFromFile("arial.ttf")) {
+        return true;
+    }
+
+    // Try common alternative locations
+    const std::vector<std::string> fontPaths = {
+        "fonts/arial.ttf",
+        "resources/arial.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf"  // Linux fallback
+    };
+
+    for (const auto& path : fontPaths) {
+        if (font.loadFromFile(path)) {
+            return true;
+        }
+    }
+
+    std::cerr << "Warning: Couldn't load any font files" << std::endl;
+    return false;
 }
 
-void drawborder() {
-    gotoxy(0,0); cout << "-----------------------------------------------------";
-    gotoxy(0, SCREEN_HEIGHT); cout << "-----------------------------------------------------";
-    for(int i=1;i<SCREEN_HEIGHT;i++) {
-        gotoxy(0, i); cout << "|";
-        gotoxy(SCREEN_WIDTH, i); cout << "|";
+bool initializeSprites() {
+    // Initialize font
+    if (!initializeFont()) {
+        std::cerr << "Failed to initialize font! Text will not be displayed." << std::endl;
+    }
+
+    // Set up score text
+    scoreText.setFont(font);
+    scoreText.setCharacterSize(24);
+    scoreText.setFillColor(sf::Color::White);
+    scoreText.setPosition(20.f, window.getSize().y - 40.f);
+    scoreText.setString("Score: 0");
+
+    // Set up game over text
+    gameOverText.setFont(font);
+    gameOverText.setCharacterSize(48);
+    gameOverText.setFillColor(sf::Color::Yellow);
+    gameOverText.setString("YOU WON!");
+    gameOverText.setPosition(
+        (window.getSize().x - gameOverText.getLocalBounds().width) / 2.f,
+        (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f
+    );
+
+    // Set up restart instructions text
+    restartText.setFont(font);
+    restartText.setCharacterSize(24);
+    restartText.setFillColor(sf::Color::White);
+    restartText.setString("Press R to restart or ESC to quit");
+    restartText.setPosition(
+        (window.getSize().x - restartText.getLocalBounds().width) / 2.f,
+        (window.getSize().y - restartText.getLocalBounds().height) / 2.f + 60
+    );
+
+    /*=======================================Paddle ======================================*/
+    if (!paddleTexture.loadFromFile("img/paddle.png")) {
+        std::cerr << "Failed to load paddle texture!" << std::endl;
+        return false;
+    }
+    paddleTexture.setSmooth(true);
+    paddle.setTexture(paddleTexture);
+    paddle.setScale(0.1f, 0.1f);
+
+    float paddleX = (window.getSize().x - paddle.getGlobalBounds().width) / 2.f;
+    float paddleY = window.getSize().y - paddle.getGlobalBounds().height - 10.f;
+    paddle.setPosition(paddleX, paddleY);
+
+    /*======================================Ball=========================================*/
+    if (!ballTexture.loadFromFile("img/ball.png")) {
+        std::cerr << "Failed to load ball texture!" << std::endl;
+        return false;
+    }
+    ballTexture.setSmooth(true);
+    ball.setTexture(ballTexture);
+    ball.setPosition(window.getSize().x / 2.f, window.getSize().y / 2.f);
+    ball.setScale(0.9f, 0.9f);
+
+    /*======================================Bricks=======================================*/
+    bricksLeft = BRICK_ROWS * BRICK_COLUMNS;
+
+    // Create gradient-colored bricks
+    for (int row = 0; row < BRICK_ROWS; ++row) {
+        for (int col = 0; col < BRICK_COLUMNS; ++col) {
+            Brick brick;
+
+            // Calculate position
+            float x = col * (BRICK_WIDTH + BRICK_PADDING) + BRICK_PADDING;
+            float y = row * (BRICK_HEIGHT + BRICK_PADDING) + BRICK_TOP_OFFSET;
+
+            // Set up the brick shape
+            brick.shape.setSize(sf::Vector2f(BRICK_WIDTH, BRICK_HEIGHT));
+            brick.shape.setPosition(x, y);
+            brick.shape.setOutlineThickness(2.f);
+            brick.shape.setOutlineColor(sf::Color::Black);
+
+            // Create gradient colors based on row
+            float hue = (row * 40.f); // Vary hue by row (0-200 range)
+            brick.topColor = sf::Color(
+                static_cast<sf::Uint8>(255 * (0.7f + 0.3f * sin(hue * 3.14159265f / 180.f))),
+                static_cast<sf::Uint8>(255 * (0.7f + 0.3f * sin((hue + 120) * 3.14159265f / 180.f))),
+                static_cast<sf::Uint8>(255 * (0.7f + 0.3f * sin((hue + 240) * 3.14159265f / 180.f)))
+            );
+
+            brick.bottomColor = sf::Color(
+                static_cast<sf::Uint8>(brick.topColor.r * 0.7f),
+                static_cast<sf::Uint8>(brick.topColor.g * 0.7f),
+                static_cast<sf::Uint8>(brick.topColor.b * 0.7f)
+            );
+
+            bricks.push_back(brick);
+        }
+    }
+
+    return true;
+}
+
+/*----------------------------------------------------Game Logic Functions---------------------------------------------*/
+
+void resetGame() {
+    // Reset ball
+    ball.setPosition(window.getSize().x / 2.f, window.getSize().y / 2.f);
+    startBall = false;
+    direction = 4;
+
+    // Reset paddle
+    float paddleX = (window.getSize().x - paddle.getGlobalBounds().width) / 2.f;
+    float paddleY = window.getSize().y - paddle.getGlobalBounds().height - 10.f;
+    paddle.setPosition(paddleX, paddleY);
+
+    // Reset bricks
+    for (auto& brick : bricks) {
+        brick.isDestroyed = false;
+    }
+    bricksLeft = BRICK_ROWS * BRICK_COLUMNS;
+    score = 0;
+    gameWon = false;
+    gameLost = false;
+}
+
+void handleBallMovement() {
+    if (!startBall) return;
+
+    sf::Vector2f ballPos = ball.getPosition();
+    sf::FloatRect ballBounds = ball.getGlobalBounds();
+
+    // Ball movement based on direction
+    switch (direction) {
+    case 1: // Top right
+        ball.move(ballSpeed, -ballSpeed);
+        if (ballPos.x + ballBounds.width > window.getSize().x) direction = 2;
+        if (ballPos.y < 0) direction = 4;
+        break;
+
+    case 2: // Top left
+        ball.move(-ballSpeed, -ballSpeed);
+        if (ballPos.x < 0) direction = 1;
+        if (ballPos.y < 0) direction = 3;
+        break;
+
+    case 3: // Bottom left
+        ball.move(-ballSpeed, ballSpeed);
+        if (ballPos.x < 0) direction = 4;
+        if (ballPos.y + ballBounds.height > window.getSize().y) {
+            gameLost = true;
+            gameOverText.setString("GAME OVER");
+            gameOverText.setPosition(
+                (window.getSize().x - gameOverText.getLocalBounds().width) / 2.f,
+                (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f
+            );
+        }
+        break;
+
+    case 4: // Bottom right
+        ball.move(ballSpeed, ballSpeed);
+        if (ballPos.x + ballBounds.width > window.getSize().x) direction = 3;
+        if (ballPos.y + ballBounds.height > window.getSize().y) {
+            gameLost = true;
+            gameOverText.setString("GAME OVER");
+            gameOverText.setPosition(
+                (window.getSize().x - gameOverText.getLocalBounds().width) / 2.f,
+                (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f
+            );
+        }
+        break;
     }
 }
 
-void drawBricks() {
-    for(int i=0; i<24; i++) {
-        if (visibleBricks[i] == 1) {
-            gotoxy(Bricks[i][1], Bricks[i][0]);
-            cout << "±±±±"; 
+void checkPaddleCollision() {
+    sf::FloatRect ballBounds = ball.getGlobalBounds();
+    sf::FloatRect paddleBounds = paddle.getGlobalBounds();
+
+    if (ballBounds.intersects(paddleBounds)) {
+        // Ball hit the paddle
+        if (direction == 3) {
+            direction = 2; // Bottom left -> Top left
+        }
+        else if (direction == 4) {
+            direction = 1; // Bottom right -> Top right
+        }
+
+        // Add some randomness to the bounce
+        float hitPosition = (ball.getPosition().x + ballBounds.width / 2) - paddle.getPosition().x;
+        float normalizedHit = hitPosition / paddleBounds.width;
+
+        if (normalizedHit < 0.3f) {
+            direction = 2; // Favor left direction
+        }
+        else if (normalizedHit > 0.7f) {
+            direction = 1; // Favor right direction
         }
     }
 }
 
-void BallHitSlider() {
-    if (ballPosition[1] >= sliderPosition[1] && ballPosition[1] <= sliderPosition[1] + 8) {
-        if (ballPosition[0] == sliderPosition[0] - 1) {
-            if (direction == 3) {direction = 2;}
-            else if (direction == 4)
-            {
-                direction = 1;
+void checkBrickCollisions() {
+    sf::FloatRect ballBounds = ball.getGlobalBounds();
+
+    for (auto& brick : bricks) {
+        if (!brick.isDestroyed && ballBounds.intersects(brick.shape.getGlobalBounds())) {
+            brick.isDestroyed = true;
+            bricksLeft--;
+            score += 10;
+
+            // Update score display
+            scoreText.setString("Score: " + std::to_string(score));
+
+            // Change direction based on where the ball hit the brick
+            sf::FloatRect brickBounds = brick.shape.getGlobalBounds();
+            float ballCenterX = ball.getPosition().x + ballBounds.width / 2;
+            float ballCenterY = ball.getPosition().y + ballBounds.height / 2;
+
+            // Determine collision side
+            bool fromLeft = ballCenterX < brickBounds.left;
+            bool fromRight = ballCenterX > brickBounds.left + brickBounds.width;
+            bool fromTop = ballCenterY < brickBounds.top;
+            bool fromBottom = ballCenterY > brickBounds.top + brickBounds.height;
+
+            if (fromLeft || fromRight) {
+                // Horizontal bounce
+                if (direction == 1) direction = 2;
+                else if (direction == 2) direction = 1;
+                else if (direction == 3) direction = 4;
+                else if (direction == 4) direction = 3;
             }
-            
+            else {
+                // Vertical bounce
+                if (direction == 1) direction = 4;
+                else if (direction == 2) direction = 3;
+                else if (direction == 3) direction = 2;
+                else if (direction == 4) direction = 1;
+            }
+
+            break; // Only process one collision per frame
         }
+    }
+
+    if (bricksLeft == 0) {
+        gameWon = true;
     }
 }
 
-void BallHitBrick() {
-    for(int i=0;i<24;i++) {
-        if(visibleBricks[i] == 1) {
-            if(ballPosition[1] >= Bricks[i][1] && ballPosition[1] <= Bricks[i][1] + 8) {
-                if(ballPosition[0] == Bricks[i][0]) {
-                    visibleBricks[i] = 0;
-                    bricksleft--;
+void drawGradientBrick(sf::RenderWindow& window, const Brick& brick) {
+    if (brick.isDestroyed) return;
+
+    const sf::RectangleShape& shape = brick.shape;
+    sf::Vector2f size = shape.getSize();
+    sf::Vector2f position = shape.getPosition();
+
+    // Create a vertex array for gradient
+    sf::VertexArray gradient(sf::Quads, 4);
+
+    // Top-left
+    gradient[0].position = position;
+    gradient[0].color = brick.topColor;
+
+    // Top-right
+    gradient[1].position = sf::Vector2f(position.x + size.x, position.y);
+    gradient[1].color = brick.topColor;
+
+    // Bottom-right
+    gradient[2].position = sf::Vector2f(position.x + size.x, position.y + size.y);
+    gradient[2].color = brick.bottomColor;
+
+    // Bottom-left
+    gradient[3].position = sf::Vector2f(position.x, position.y + size.y);
+    gradient[3].color = brick.bottomColor;
+
+    // Draw the gradient
+    window.draw(gradient);
+
+    // Draw the outline
+    window.draw(shape);
+}
+
+/*-------------------------------------------------------Main Loop------------------------------------------------------*/
+int main() {
+    window.setFramerateLimit(60);
+
+    if (!initializeSprites()) {
+        return -1;
+    }
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+            }
+
+            // Handle key presses
+            if (event.type == sf::Event::KeyPressed) {
+                if (event.key.code == sf::Keyboard::Space && !startBall && !gameWon && !gameLost) {
+                    startBall = true;
+                }
+
+                if ((gameWon || gameLost) && event.key.code == sf::Keyboard::R) {
+                    resetGame();
+                }
+
+                if (event.key.code == sf::Keyboard::Escape) {
+                    window.close();
                 }
             }
         }
-    }
-}
 
-void play() {
-    while(1) {
-        system("cls");
-        drawBricks();
-        drawborder();
-        ScoreBoard(score);
-        gotoxy(sliderPosition[1], sliderPosition[0]);
-        cout << "±±±±±±±±±";
+        // Game logic only if game is active
+        if (!gameWon && !gameLost) {
+            // Paddle movement
+            if ((sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) &&
+                paddle.getPosition().x > 5) {
+                paddle.move(-moveSpeed, 0);
+                if (!startBall) {
+                    ball.move(-moveSpeed, 0);
+                }
+            }
 
-        gotoxy(ballPosition[1], ballPosition[0]);
-        cout << "0";
-        if (kbhit()) {
-        	if (sliderPosition[1] < SCREEN_WIDTH-2) {
-            char ch = getch();
-            if (ch == 'd' || ch == 'D' || ch == 77) {
-                if (sliderPosition[1] < 44)
-                        sliderPosition[1] = sliderPosition[1]+5;
+            if ((sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) &&
+                paddle.getPosition().x + paddle.getGlobalBounds().width < window.getSize().x) {
+                paddle.move(moveSpeed, 0);
+                if (!startBall) {
+                    ball.move(moveSpeed, 0);
+                }
             }
-            if (ch == 'a' || ch == 'A' || ch == 75) {
-                if (sliderPosition[1] > 2)
-                        sliderPosition[1] = sliderPosition[1]-5;
-            }
-            if (ch == 32) {
-                startball = 1;
-            }
-            if (ch == 27) {
-                break;
-            }
-         }
+
+            // Game logic
+            handleBallMovement();
+            checkPaddleCollision();
+            checkBrickCollisions();
         }
-        if (startball == 1) {
-            if (direction == 1) { //Top right
-                ballPosition[0] = ballPosition[0] - 1;
-                ballPosition[1] = ballPosition[1] + 2;
-                if (ballPosition[1] > MAX_X) {
-                    direction = 2;
-                }   
-                else if (ballPosition[0] < MIN_Y) {
-                    direction = 4;
-                }
-            } else if (direction == 2) {// Top left
-                ballPosition[0] = ballPosition[0] - 1;
-                ballPosition[1] = ballPosition[1] - 2;
-                if (ballPosition[1] < MIN_X) {
-                    direction = 1;
-                }   
-                else if (ballPosition[0] < MIN_Y) {
-                    direction = 3;
-                }
-            } else if (direction == 3) { //Bottom left
-                ballPosition[0] = ballPosition[0] + 1;
-                ballPosition[1] = ballPosition[1] - 2;
-                if (ballPosition[0] > MAX_Y) {
-                    loose = 1;
-                    break;
-                }   
-                else if (ballPosition[1] < MIN_X) {
-                    direction = 4;  
-                }
-            } else if (direction == 4) {//Bottom right
-                ballPosition[0] = ballPosition[0] + 1;
-                ballPosition[1] = ballPosition[1] + 2;
-                if (ballPosition[1] > MAX_X) {
-                    direction = 3;
-                }   
-                else if (ballPosition[0] >  MAX_Y) {
-                    loose = 1;
-                    break;
-                }
-            }
-            BallHitSlider();
-        }	
-        BallHitBrick();
-        score = 24 - bricksleft;
-        if (bricksleft == 0) {
-            win = 1;
-            break;
+
+        // Clear the window
+        window.clear(sf::Color(30, 30, 40));
+
+        // Draw all bricks
+        for (const auto& brick : bricks) {
+            drawGradientBrick(window, brick);
         }
-        Sleep(30);
-    }
 
-    if (loose == 1) {
-    	loose = 0;
-        system("cls");
-        
-        gotoxy(10, 5); cout << "------------------------";
-        gotoxy(10, 6); cout << "|      YOU LOST!       |";
-        gotoxy(10, 7); cout << "------------------------";
+        // Draw paddle and ball
+        window.draw(paddle);
+        window.draw(ball);
 
-        gotoxy(10, 9); cout << "Press any key to go back to menu.";
-        getch();
-    }
+        // Draw UI elements
+        window.draw(scoreText);
 
-    if (win == 1) {
-        system("cls");
-
-        gotoxy(10, 5); cout << "------------------------";
-        gotoxy(10, 6); cout << "|      YOU WON!       |";
-        gotoxy(10, 7); cout << "------------------------";
-
-        gotoxy(10, 9); cout << "Press any key to go back to menu.";
-        getch();
-    }
-}
-
-void instructions() {
-	system("cls");
-	cout << "Instructions";
-	cout << "\n--------------";
-	cout << "\n1. Use 'a' key to move the slider to the left.";	
-	cout << "\n1. Use 'd' key to move the slider to the right.";
-	cout << "\n3. Press spacebar to start the game";
-	cout << "Press any key to go back to menu.";
-	getch();	
-}
-
-int main () {
-    setcursor(0,0);
-
-    do {
-        system("cls");
-        gotoxy(10,5); cout << "   -------------------------------  ";
-        gotoxy(10,6); cout << "   |       BRICK BREAKER         | ";
-        gotoxy(10,7); cout << "   -------------------------------  ";
-        gotoxy(10, 9); cout << "1. Start the Game.";
-        gotoxy(10,10); cout << "2. Control Manual.";
-        gotoxy(10,11); cout << "3. Quit";
-
-        gotoxy(10,13); cout << "Select an option: ";
-        char opt = getche();
-        if (opt == '1') 
-            play();
-        else if (opt == '2')
-        	instructions();
-        else if (opt == '3') {
-        	cout << "Thank you for playing :)" << endl;
-            exit(0); }
-        else {
-        	cout << "Invalid Option.";
+        // Draw game over message if needed
+        if (gameWon || gameLost) {
+            sf::RectangleShape overlay(sf::Vector2f(window.getSize().x, window.getSize().y));
+            overlay.setFillColor(sf::Color(0, 0, 0, 150));
+            window.draw(overlay);
+            window.draw(gameOverText);
+            window.draw(restartText);
         }
-    } while(1);
-    play();
-    cout << endl << endl;
+
+        // Display everything
+        window.display();
+    }
+
     return 0;
 }
+
