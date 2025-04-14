@@ -1,11 +1,12 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <iostream>
 #include <vector>
 #include <cmath>
 
 /*----------------------------------------------------Global Variables---------------------------------------------------*/
-sf::RenderWindow window(sf::VideoMode(1000, 800), "Breakout Game");
-const float moveSpeed = 5.3f;
+sf::RenderWindow window(sf::VideoMode(800, 600), "Breakout Game");
+const float moveSpeed = 6.f;
 sf::Texture paddleTexture;
 sf::Sprite paddle;
 sf::Texture ballTexture;
@@ -33,9 +34,9 @@ struct Brick
 std::vector<Brick> bricks;
 const int BRICK_ROWS = 6;
 const int BRICK_COLUMNS = 10;
-const float BRICK_WIDTH = 90.f;
-const float BRICK_HEIGHT = 30.f;
-const float BRICK_PADDING = 10.f;
+const float BRICK_WIDTH = 74.f;
+const float BRICK_HEIGHT = 20.f;
+const float BRICK_PADDING = 5.5f;
 const float BRICK_TOP_OFFSET = 50.f;
 
 
@@ -43,6 +44,8 @@ sf::Font font;
 sf::Text scoreText;
 sf::Text gameOverText;
 sf::Text restartText;
+
+sf::Music backgroundMusic;
 
 /*----------------------------------------------------Initialization Functions------------------------------------------*/
 
@@ -94,20 +97,18 @@ bool initializeSprites() {
     gameOverText.setString("YOU WON!");
     gameOverText.setPosition(
         (window.getSize().x - gameOverText.getLocalBounds().width) / 2.f,
-        (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f
-    );
+        (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f);
 
 
     restartText.setFont(font);
     restartText.setCharacterSize(24);
-    restartText.setFillColor(sf::Color::White);
+    restartText.setFillColor(sf::Color::Red);
     restartText.setString("Press R to restart or ESC to quit");
     restartText.setPosition(
         (window.getSize().x - restartText.getLocalBounds().width) / 2.f,
-        (window.getSize().y - restartText.getLocalBounds().height) / 2.f + 60
-    );
+        (window.getSize().y - restartText.getLocalBounds().height) / 2.f + 60);
 
-    /*=======================================Paddle ======================================*/
+    /*=======================================Initial Paddle State======================================*/
     if (!paddleTexture.loadFromFile("img/paddle.png")) {
         std::cerr << "Failed to load paddle texture!" << std::endl;
         return false;
@@ -120,7 +121,7 @@ bool initializeSprites() {
     float paddleY = window.getSize().y - paddle.getGlobalBounds().height - 10.f;
     paddle.setPosition(paddleX, paddleY);
 
-    /*======================================Ball=========================================*/
+    /*======================================Initial Ball State=========================================*/
     if (!ballTexture.loadFromFile("img/ball.png")) {
         std::cerr << "Failed to load ball texture!" << std::endl;
         return false;
@@ -130,7 +131,7 @@ bool initializeSprites() {
     ball.setPosition(window.getSize().x / 2.f, window.getSize().y / 2.f);
     ball.setScale(0.9f, 0.9f);
 
-    /*======================================Bricks=======================================*/
+    /*======================================Initial Bricks State=======================================*/
     bricksLeft = BRICK_ROWS * BRICK_COLUMNS;
 
     // Create gradient-colored bricks
@@ -219,8 +220,7 @@ void handleBallMovement() {
             gameOverText.setString("GAME OVER");
             gameOverText.setPosition(
                 (window.getSize().x - gameOverText.getLocalBounds().width) / 2.f,
-                (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f
-            );
+                (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f - 40);
         }
         break;
 
@@ -349,10 +349,19 @@ void drawGradientBrick(sf::RenderWindow& window, const Brick& brick) {
 int main() {
     window.setFramerateLimit(60);
 
+    // Plays some bangers while the game is played
+    if (!gameWon && !gameLost) {
+        if (!backgroundMusic.openFromFile("Absolute-Class/Soul-Sanctum.ogg")) {
+            std::cerr << "Failed to load background music!" << std::endl;
+        } else {
+            backgroundMusic.setLoop(true);  // Loop it forever
+            backgroundMusic.setVolume(25); 
+            backgroundMusic.play();
+        }
+    }
     if (!initializeSprites()) {
         return -1;
     }
-
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -375,7 +384,6 @@ int main() {
                 }
             }
         }
-
         // Game logic only if game is active
         if (!gameWon && !gameLost) {
             // Paddle movement
@@ -423,12 +431,12 @@ int main() {
             window.draw(overlay);
             window.draw(gameOverText);
             window.draw(restartText);
+            backgroundMusic.pause();
         }
 
         // Display everything
         window.display();
-    }
+    } 
 
-    return 0;
+    return 0;  
 }
-

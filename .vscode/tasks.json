@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build SFML App",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "g++ -Iinclude -Llib src/main.cpp -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio -o Brick-Breaker.exe && copy lib\\*.dll ."
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
+}
