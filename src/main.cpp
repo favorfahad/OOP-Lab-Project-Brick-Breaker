@@ -37,7 +37,7 @@ const int BRICK_COLUMNS = 10;
 const float BRICK_WIDTH = 74.f;
 const float BRICK_HEIGHT = 20.f;
 const float BRICK_PADDING = 5.5f;
-const float BRICK_TOP_OFFSET = 50.f;
+const float BRICK_TOP_OFFSET = 30.f;
 
 
 sf::Font font;
