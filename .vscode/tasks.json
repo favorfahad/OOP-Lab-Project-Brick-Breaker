@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build SFML App",
+      "label": "Build Brick Breaker App",
       "type": "shell",
       "command": "cmd",
       "args": [

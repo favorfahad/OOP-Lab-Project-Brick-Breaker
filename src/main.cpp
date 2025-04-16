@@ -6,6 +6,13 @@
 
 /*----------------------------------------------------Global Variables---------------------------------------------------*/
 sf::RenderWindow window(sf::VideoMode(800, 600), "Breakout Game");
+
+sf::Texture buttonTexture;
+sf::RectangleShape hover;
+sf::Sprite startbutton;
+sf::Texture MenubackgroundTexture;
+sf::Sprite Menubackground;
+
 const float moveSpeed = 6.f;
 sf::Texture paddleTexture;
 sf::Sprite paddle;
@@ -21,8 +28,9 @@ bool gameWon = false;
 bool gameLost = false;
 const float ballSpeed = 5.0f;
 
-struct Brick 
+class Brick 
 {
+    public:
     sf::RectangleShape shape;
     bool isDestroyed = false;
     sf::Color topColor = sf::Color::Red;
@@ -168,7 +176,42 @@ bool initializeSprites() {
 
     return true;
 }
-
+/*----------------------------------------------------Start Menu-------------------------------------------------------*/
+bool StartMenu(){
+    // Sets background 
+    if(!MenubackgroundTexture.loadFromFile("img/Menu.png")){
+        std::cerr << "Failed to load menu background.\n";
+    }
+    Menubackground.setTexture(MenubackgroundTexture);
+    sf::Vector2u windowSize = window.getSize();
+    sf::Vector2u textureSize = MenubackgroundTexture.getSize();
+    Menubackground.setScale(                  // Setting the background to exactly fit the window
+        float(windowSize.x) / textureSize.x,
+        float(windowSize.y) / textureSize.y
+    );
+    // Sets Start Button
+    buttonTexture.loadFromFile("img/StartButton.png");
+    startbutton.setTexture(buttonTexture);
+    startbutton.setPosition(200, 200);
+    // Shape for hover effects
+    sf::Cursor Arrow;
+    Arrow.loadFromSystem(sf::Cursor::Arrow);
+    sf::Cursor Hand;
+    Hand.loadFromSystem(sf::Cursor::Hand);
+    // Checking if the button is clicked
+    sf::Vector2i mousePos = sf::Mouse::getPosition(window); // Get mouse co-ordinates relative to window
+    sf::FloatRect buttonbounds = startbutton.getGlobalBounds();   // Get button corner co-ordinates
+    if(buttonbounds.contains(static_cast<sf::Vector2f>(mousePos))){
+        window.setMouseCursor(Hand); // Hovering effect 
+        if(sf::Mouse::isButtonPressed(sf::Mouse::Left)){
+            return true;
+        }
+    }
+    else{
+        window.setMouseCursor(Arrow); 
+    }
+    return false;
+}
 /*----------------------------------------------------Game Logic Functions---------------------------------------------*/
 
 void resetGame() {
@@ -190,6 +233,8 @@ void resetGame() {
     score = 0;
     gameWon = false;
     gameLost = false;
+    //Replay Music
+    backgroundMusic.play();
 }
 
 void handleBallMovement() {
@@ -348,27 +393,60 @@ void drawGradientBrick(sf::RenderWindow& window, const Brick& brick) {
 /*-------------------------------------------------------Main Loop------------------------------------------------------*/
 int main() {
     window.setFramerateLimit(60);
-
-    // Plays some bangers while the game is played
-    if (!gameWon && !gameLost) {
-        if (!backgroundMusic.openFromFile("Absolute-Class/Soul-Sanctum.ogg")) {
-            std::cerr << "Failed to load background music!" << std::endl;
-        } else {
-            backgroundMusic.setLoop(true);  // Loop it forever
-            backgroundMusic.setVolume(25); 
-            backgroundMusic.play();
-        }
-    }
     if (!initializeSprites()) {
         return -1;
     }
+    // Music settings
+    if(!backgroundMusic.openFromFile("Absolute-Class/City-of-Tears.ogg")){
+        std::cerr << "Failed to load background music.\n";
+    }
+    backgroundMusic.setLoop(true);
+    backgroundMusic.setVolume(10);
+    // Plays Music in Menu
+    backgroundMusic.play();
+    // Menu loop and render
+    while (!StartMenu()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.key.code == sf::Keyboard::Escape) {
+                backgroundMusic.pause();
+                window.close();
+            }
+            if (event.type == sf::Event::Closed){
+                backgroundMusic.pause();
+                window.close();
+            }
+        }
+        window.clear();
+        window.draw(Menubackground);
+        window.draw(startbutton);
+        window.display();
+    }
+    // Resetting the cursor state
+    sf::Cursor Arrow;
+    Arrow.loadFromSystem(sf::Cursor::Arrow);
+    window.setMouseCursor(Arrow);
+    // Plays Music while the game is in play
+    if(!gameLost && !gameWon){
+        backgroundMusic.pause();
+        if(!backgroundMusic.openFromFile("Absolute-Class/Soul-Sanctum.ogg")){
+            std::cerr << "Failed to load background music.\n";
+        }
+        backgroundMusic.setLoop(true);
+        backgroundMusic.setVolume(10);
+        backgroundMusic.play();
+    }
+    else if(gameLost || gameWon){
+        backgroundMusic.pause();
+    }
+    //Game loop
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
+                backgroundMusic.pause();
                 window.close();
             }
-
             // Handle key presses
             if (event.type == sf::Event::KeyPressed) {
                 if (event.key.code == sf::Keyboard::Space && !startBall && !gameWon && !gameLost) {
@@ -380,6 +458,7 @@ int main() {
                 }
 
                 if (event.key.code == sf::Keyboard::Escape) {
+                    backgroundMusic.pause();
                     window.close();
                 }
             }
