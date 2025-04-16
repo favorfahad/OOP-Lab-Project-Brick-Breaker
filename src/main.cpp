@@ -1,11 +1,25 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
+#include <ctime>
 #include <iostream>
 #include <vector>
 #include <cmath>
 
 /*----------------------------------------------------Global Variables---------------------------------------------------*/
-sf::RenderWindow window(sf::VideoMode(800, 600), "Breakout Game");
+#define winWidth  800
+#define winLength  600
+#define tx 150 
+#define ty 50
+sf::RenderWindow window(sf::VideoMode(winWidth, winLength), "Brick Breaker");
+// for menu page
+sf::RectangleShape winRect(sf::Vector2f(winWidth, winLength));
+sf::Font font;
+sf::Text title, shadow1, shadow2, shadow3, startText;
+std::vector<sf::CircleShape> dots;
+sf::RectangleShape rect;
+sf::RectangleShape outerRectangle;
+sf::CircleShape upperleftcir, upperRightCir, leftCircle, rightCircle;
+sf::Clock gameClock;
 
 sf::Texture buttonTexture;
 sf::RectangleShape hover;
@@ -13,13 +27,14 @@ sf::Sprite startbutton;
 sf::Texture MenubackgroundTexture;
 sf::Sprite Menubackground;
 
+// Paddle
 const float moveSpeed = 6.f;
 sf::Texture paddleTexture;
 sf::Sprite paddle;
 sf::Texture ballTexture;
 sf::Sprite ball;
 
-
+//Ball
 bool startBall = false;
 int direction = 4; 
 int bricksLeft = 0;
@@ -28,6 +43,7 @@ bool gameWon = false;
 bool gameLost = false;
 const float ballSpeed = 5.0f;
 
+//Brick
 class Brick 
 {
     public:
@@ -47,8 +63,8 @@ const float BRICK_HEIGHT = 20.f;
 const float BRICK_PADDING = 5.5f;
 const float BRICK_TOP_OFFSET = 30.f;
 
-
-sf::Font font;
+//Game messages
+sf::Font font2;
 sf::Text scoreText;
 sf::Text gameOverText;
 sf::Text restartText;
@@ -59,12 +75,12 @@ sf::Music backgroundMusic;
 
 bool initializeFont() {
 
-    if (font.loadFromFile("C:/Windows/Fonts/Arial.ttf")) {
+    if (font2.loadFromFile("C:/Windows/Fonts/Arial.ttf")) {
         return true;
     }
 
 
-    if (font.loadFromFile("arial.ttf")) {
+    if (font2.loadFromFile("arial.ttf")) {
         return true;
     }
 
@@ -92,14 +108,14 @@ bool initializeSprites() {
         std::cerr << "Failed to initialize font! Text will not be displayed." << std::endl;
     }
 
-    scoreText.setFont(font);
+    scoreText.setFont(font2);
     scoreText.setCharacterSize(24);
     scoreText.setFillColor(sf::Color::White);
     scoreText.setPosition(20.f, window.getSize().y - 40.f);
     scoreText.setString("Score: 0");
 
 
-    gameOverText.setFont(font);
+    gameOverText.setFont(font2);
     gameOverText.setCharacterSize(48);
     gameOverText.setFillColor(sf::Color::Yellow);
     gameOverText.setString("YOU WON!");
@@ -108,7 +124,7 @@ bool initializeSprites() {
         (window.getSize().y - gameOverText.getLocalBounds().height) / 2.f);
 
 
-    restartText.setFont(font);
+    restartText.setFont(font2);
     restartText.setCharacterSize(24);
     restartText.setFillColor(sf::Color::Red);
     restartText.setString("Press R to restart or ESC to quit");
@@ -177,22 +193,78 @@ bool initializeSprites() {
     return true;
 }
 /*----------------------------------------------------Start Menu-------------------------------------------------------*/
-bool StartMenu(){
-    // Sets background 
-    if(!MenubackgroundTexture.loadFromFile("img/Menu.png")){
-        std::cerr << "Failed to load menu background.\n";
+bool StartMenu() {
+    float radius = 25.f;
+    float length = 180.f;
+    float yPosition = 450.f;
+    // Set background color and position
+    winRect.setFillColor(sf::Color(97, 132, 170));
+    winRect.setPosition(0.f, 0.f);
+    // Load and apply font to title text
+    font.loadFromFile("Font/VCR_OSD_MONO.ttf");
+    // Create drop shadow effects
+    title.setFont(font);
+    title.setString(" BRICK\nBREAKER");
+    title.setCharacterSize(100);
+    title.setFillColor(sf::Color(20, 45, 75));
+    title.setStyle(sf::Text::Bold);
+    title.setOutlineColor(sf::Color(20, 45, 75));
+    title.setOutlineThickness(3);
+    title.setPosition(tx, ty);
+    // Generate background sprinkles/dots
+    shadow1 = title; shadow2 = title; shadow3 = title;
+    shadow1.setFillColor(sf::Color(194, 231, 255)); shadow1.setPosition(tx + 4, ty + 4);
+    shadow2.setFillColor(sf::Color(194, 231, 255)); shadow2.setPosition(tx + 4, ty + 8);
+    shadow3.setFillColor(sf::Color(194, 231, 255)); shadow3.setPosition(tx + 4, ty + 10);
+    // Setup START button (technically text type) rectangle and surrounding elements
+    std::srand(static_cast<unsigned>(std::time(0)));
+    for (int i = 0; i < 80; ++i) {
+        sf::CircleShape dot(3);
+        dot.setFillColor(sf::Color(20, 45, 75));
+        float x = static_cast<float>(std::rand() % window.getSize().x);
+        float y = static_cast<float>(std::rand() % window.getSize().y);
+        dot.setPosition(x, y);
+        dots.push_back(dot);
     }
-    Menubackground.setTexture(MenubackgroundTexture);
-    sf::Vector2u windowSize = window.getSize();
-    sf::Vector2u textureSize = MenubackgroundTexture.getSize();
-    Menubackground.setScale(                  // Setting the background to exactly fit the window
-        float(windowSize.x) / textureSize.x,
-        float(windowSize.y) / textureSize.y
-    );
-    // Sets Start Button
-    buttonTexture.loadFromFile("img/StartButton.png");
-    startbutton.setTexture(buttonTexture);
-    startbutton.setPosition(200, 200);
+    // Start button shaping
+    float shiftLeft = -50.f;
+    rect.setSize(sf::Vector2f(length, 2 * radius));
+    rect.setFillColor(sf::Color(20, 45, 75));
+    rect.setPosition(310.f + radius + shiftLeft, yPosition);
+    
+    outerRectangle.setSize(sf::Vector2f(length, (2 * radius) + 4));
+    outerRectangle.setFillColor(sf::Color(194, 231, 255));
+    outerRectangle.setPosition(310.f + radius + shiftLeft, yPosition - 2);
+    
+    upperleftcir.setRadius(radius + 2);
+    upperleftcir.setFillColor(sf::Color(194, 231, 255));
+    upperleftcir.setPosition(305.f + shiftLeft, yPosition - 1.97f);
+    
+    leftCircle.setRadius(radius);
+    leftCircle.setFillColor(sf::Color(20, 45, 75));
+    leftCircle.setPosition(307.f + shiftLeft, yPosition);
+    
+    upperRightCir.setRadius(radius + 2);
+    upperRightCir.setFillColor(sf::Color(194, 231, 255));
+    upperRightCir.setPosition(308.f + length + shiftLeft, yPosition - 1.97f);
+    
+    rightCircle.setRadius(radius);
+    rightCircle.setFillColor(sf::Color(20, 45, 75));
+    rightCircle.setPosition(310.f + length + shiftLeft, yPosition);
+
+    // Staging the start button text
+    startText.setFont(font);
+    startText.setString("START");
+    startText.setCharacterSize(50);
+    startText.setFillColor(sf::Color(194, 231, 255));
+    startText.setStyle(sf::Text::Bold);
+    startText.setLetterSpacing(0.75f);
+    startText.setOutlineColor(sf::Color(20, 45, 75));
+    startText.setOutlineThickness(3);
+    // Center the text inside the button, and compensation for adjustment
+    sf::FloatRect textBounds = startText.getLocalBounds();
+    startText.setOrigin(textBounds.width / 2, textBounds.height / 2);
+    startText.setPosition(260.f + radius + length / 2, (yPosition + radius) - 11);
     // Shape for hover effects
     sf::Cursor Arrow;
     Arrow.loadFromSystem(sf::Cursor::Arrow);
@@ -200,7 +272,7 @@ bool StartMenu(){
     Hand.loadFromSystem(sf::Cursor::Hand);
     // Checking if the button is clicked
     sf::Vector2i mousePos = sf::Mouse::getPosition(window); // Get mouse co-ordinates relative to window
-    sf::FloatRect buttonbounds = startbutton.getGlobalBounds();   // Get button corner co-ordinates
+    sf::FloatRect buttonbounds = startText.getGlobalBounds();   // Get button corner co-ordinates
     if(buttonbounds.contains(static_cast<sf::Vector2f>(mousePos))){
         window.setMouseCursor(Hand); // Hovering effect 
         if(sf::Mouse::isButtonPressed(sf::Mouse::Left)){
@@ -405,21 +477,40 @@ int main() {
     // Plays Music in Menu
     backgroundMusic.play();
     // Menu loop and render
+    window.setFramerateLimit(60);
+    // Runs menu till start
     while (!StartMenu()) {
+        // Animate title
+        float time = gameClock.getElapsedTime().asSeconds();
+        float offsetY = std::sin(time * 2) * 10;
+        title.setPosition(tx, ty + offsetY);
         sf::Event event;
         while (window.pollEvent(event)) {
-            if (event.key.code == sf::Keyboard::Escape) {
-                backgroundMusic.pause();
-                window.close();
-            }
             if (event.type == sf::Event::Closed){
                 backgroundMusic.pause();
                 window.close();
             }
+            if (event.key.code == sf::Keyboard::Escape) {
+                backgroundMusic.pause();
+                window.close();
+            }
         }
-        window.clear();
-        window.draw(Menubackground);
-        window.draw(startbutton);
+        // Render Menu Page
+        window.clear(sf::Color::Black);
+        window.draw(winRect);
+        window.draw(upperleftcir);
+        window.draw(upperRightCir);
+        window.draw(rightCircle);
+        window.draw(leftCircle);
+        window.draw(outerRectangle);
+        window.draw(rect);
+        for (const auto& dot : dots)
+            window.draw(dot);
+        window.draw(shadow1);
+        window.draw(shadow2);
+        window.draw(shadow3);
+        window.draw(title);
+        window.draw(startText);
         window.display();
     }
     // Resetting the cursor state
