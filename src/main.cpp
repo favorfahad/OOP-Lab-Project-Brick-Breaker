@@ -70,7 +70,8 @@ sf::Text gameOverText;
 sf::Text restartText;
 
 sf::Music backgroundMusic;
-
+sf::SoundBuffer buffer;
+sf::Sound sound;
 /*----------------------------------------------------Initialization Functions------------------------------------------*/
 
 bool initializeFont() {
@@ -274,12 +275,18 @@ bool StartMenu() {
     sf::Vector2i mousePos = sf::Mouse::getPosition(window); // Get mouse co-ordinates relative to window
     sf::FloatRect buttonbounds = startText.getGlobalBounds();   // Get button corner co-ordinates
     if(buttonbounds.contains(static_cast<sf::Vector2f>(mousePos))){
-        window.setMouseCursor(Hand); // Hovering effect 
+        window.setMouseCursor(Hand); // Hovering effect Cursor change
+        startText.setFillColor(sf::Color(169, 169, 169)); // Text color change hover effect
         if(sf::Mouse::isButtonPressed(sf::Mouse::Left)){
+            buffer.loadFromFile("game-sounds/click.ogg"); 
+            sound.setBuffer(buffer);// Sound for when the start button is clicked
+            sound.setVolume(50);
+            sound.play();
             return true;
         }
     }
     else{
+        startText.setFillColor(sf::Color(194, 231, 255)); // Resetting the cursor and color when not hovering 
         window.setMouseCursor(Arrow); 
     }
     return false;
