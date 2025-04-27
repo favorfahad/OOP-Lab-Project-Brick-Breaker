@@ -116,7 +116,7 @@ bool initializeSprites() {
     powerupTexture.loadFromFile("img/Powerup.png");
     scoreText.setFont(font2);
     scoreText.setCharacterSize(24);
-    scoreText.setFillColor(sf::Color::White);
+    scoreText.setFillColor(sf::Color::Black);
     scoreText.setPosition(20.f, window.getSize().y - 40.f);
     scoreText.setString("Score: 0");
 
@@ -304,7 +304,7 @@ class Powerup{
     sf::Sprite powerup;
     public:
     Powerup(){
-        powerup.setTexture(powerupTexture);
+        powerup.setTexture(powerupTexture); 
         powerup.setScale(0.08f,0.08f);
         float randomX = static_cast<float>(std::rand() % 600);
         powerup.setPosition(randomX, 250.f);
@@ -315,7 +315,7 @@ class Powerup{
     void Spawn(){
         window.draw(powerup);
     }
-    virtual void Perform() = 0; // Actually activates the powerup
+    virtual void Perform(){} // Actually activates the powerup
 
     bool checkCollision(const sf::FloatRect& paddleBounds) {
         return powerup.getGlobalBounds().intersects(paddleBounds); // Check if the power-up intersects with the paddle
@@ -328,22 +328,39 @@ class Powerup{
 // making powerup1 (good)
 class DestroyBrickspower : public Powerup{
     public:
-    void Perform() override{}
-
+    void Perform() override{
+        int size = bricksLeft;
+        int removed = 0;
+        for(auto it = bricks.end()-1; it >= bricks.begin(); --it){ // iterating thorugh the vector of Brick
+            if(removed == size/2){ // removing half of current bricks
+                return;
+            }
+            else{
+                if(!it->isDestroyed){      // updating values of bricks and scoreboard
+                    it->isDestroyed = true;
+                    bricksLeft--; 
+                    score += 10;
+                    removed ++;
+                }
+            }
+        }
+    }
 };
+
 
 // making powerup2 (bad)
 class SpeedupBallpower: public Powerup{
     public:
     void Perform() override { // speeds up the ball
-        ballSpeed = 8.f;
+        ballSpeed += 1.f;
     }
 };
 
-// Function to create random powerup with a 50% chance of either
+// Function to create random powerup with a 40% chance of destroying bricks and 60% for speeding up the ball
 Powerup* createpowerup(){
-    int num = std::rand()  % 2;
-    if(num == 100){
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    int chance = std::rand()  % 100;
+    if(chance <= 45){  
         return new DestroyBrickspower;
     }
     else{
@@ -534,7 +551,7 @@ int main() {
         return -1;
     }
 
-    // Music settings
+    // Music for menu
     if(!backgroundMusic.openFromFile("Absolute-Class/Soul-Sanctum.ogg")){
         std::cerr << "Failed to load background music.\n";
     }
@@ -582,7 +599,7 @@ int main() {
     Arrow.loadFromSystem(sf::Cursor::Arrow);
     window.setMouseCursor(Arrow);
 
-    // Game music
+    // Main Game music
     backgroundMusic.pause();
     if(!backgroundMusic.openFromFile("Absolute-Class/City-of-Tears.ogg")){
         std::cerr << "Failed to load game music.\n";
@@ -612,16 +629,6 @@ int main() {
             }
         }
 
-        // Power-up spawning
-        float powerupTime = powerupClock.getElapsedTime().asSeconds();
-        if (powerupTime >= 10.f && activePowerups.empty()) {
-            Powerup* newPU = createpowerup();
-            if (newPU) {
-                activePowerups.push_back(newPU);
-                powerupClock.restart();
-            }
-        }
-
         // Game logic
         if (!gameWon && !gameLost) {
             // Handle input and movement
@@ -635,27 +642,34 @@ int main() {
                 paddle.move(moveSpeed, 0);
                 if (!startBall) ball.move(moveSpeed, 0);
             }
-
             handleBallMovement();
             checkPaddleCollision();
             checkBrickCollisions();
-        }
-
-        // Update power-ups
-        for (auto it = activePowerups.begin(); it != activePowerups.end(); ) {
-            (*it)->fall();
-            
-            if ((*it)->checkCollision(paddle.getGlobalBounds())) {
-                (*it)->Perform();
-                delete *it;
-                it = activePowerups.erase(it);
-            } 
-            else if ((*it)->getPosition().y > window.getSize().y) {
-                delete *it;
-                it = activePowerups.erase(it);
-            } 
-            else {
-                ++it;
+            // Power-up spawning with timing of every 10 seconds
+            float powerupTime = powerupClock.getElapsedTime().asSeconds();
+            if (powerupTime >= 10.f && activePowerups.empty()) {
+                Powerup* newPU = createpowerup();
+                if (newPU) {
+                activePowerups.push_back(newPU);
+                powerupClock.restart();
+                }
+            }
+            // Update power-ups to make them fall and delete them eventually
+            for (auto it = activePowerups.begin(); it != activePowerups.end(); ) {
+                (*it)->fall();
+                
+                if ((*it)->checkCollision(paddle.getGlobalBounds())) {
+                    (*it)->Perform();
+                    delete *it;
+                    it = activePowerups.erase(it);
+                } 
+                else if ((*it)->getPosition().y > window.getSize().y) {
+                    delete *it;
+                    it = activePowerups.erase(it);
+                } 
+                else {
+                    ++it;
+                }
             }
         }
 
@@ -669,15 +683,17 @@ int main() {
         window.draw(paddle);
         window.draw(ball);
         
-        // Draw power-ups LAST so they appear on top
-        for (auto& pu : activePowerups) {
-            pu->Spawn();
+        // Draw power-ups LAST so they appear on top and a condition to only spawn them only when game is running
+        if(!gameLost && !gameWon){
+            for (auto& pu : activePowerups) {
+                pu->Spawn();
+            }
         }
-
         // Draw UI
         window.draw(scoreText);
         
-        if (gameWon || gameLost) {
+        if (gameWon || gameLost) { // to make sure to delete the powerups once game ends and display relevant texts
+            backgroundMusic.pause();
             sf::RectangleShape overlay(sf::Vector2f(window.getSize().x, window.getSize().y));
             overlay.setFillColor(sf::Color(0, 0, 0, 150));
             for (auto* pu : activePowerups) delete pu; // Delete powerups in case of game over
