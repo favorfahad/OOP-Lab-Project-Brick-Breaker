@@ -332,7 +332,7 @@ class DestroyBrickspower : public Powerup{
         int size = bricksLeft;
         int removed = 0;
         for(auto it = bricks.end()-1; it >= bricks.begin(); --it){ // iterating thorugh the vector of Brick
-            if(removed == size/2){ // removing half of current bricks
+            if(removed == size/3){ // removing 1/3 of current bricks
                 return;
             }
             else{
@@ -360,7 +360,7 @@ class SpeedupBallpower: public Powerup{
 Powerup* createpowerup(){
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     int chance = std::rand()  % 100;
-    if(chance <= 45){  
+    if(chance <= 40){  
         return new DestroyBrickspower;
     }
     else{
