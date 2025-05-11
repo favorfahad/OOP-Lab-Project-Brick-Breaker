@@ -568,7 +568,7 @@ public:
             std::cerr << "Failed to load background music.\n";
         }
         backgroundMusic.setLoop(true);
-        backgroundMusic.setVolume(10);
+        backgroundMusic.setVolume(30);
         backgroundMusic.play();
 
         // Menu loop
