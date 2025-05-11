@@ -28,7 +28,7 @@ sf::Texture MenubackgroundTexture;
 sf::Sprite Menubackground;
 
 // Paddle
-const float moveSpeed = 6.f;
+const float moveSpeed = 6.5f;
 sf::Texture paddleTexture;
 sf::Sprite paddle;
 sf::Texture ballTexture;
@@ -41,7 +41,7 @@ int bricksLeft = 0;
 int score = 0;
 bool gameWon = false;
 bool gameLost = false;
-const float ballSpeed = 5.0f;
+float ballSpeed = 5.0f;
 
 //Brick
 class Brick 
@@ -72,8 +72,13 @@ sf::Text restartText;
 sf::Music backgroundMusic;
 sf::SoundBuffer buffer;
 sf::Sound sound;
-/*----------------------------------------------------Initialization Functions------------------------------------------*/
 
+
+sf::Clock powerupClock; // Timer for the spawning duration of each powerup
+class Powerup;         // Forward Declaration
+std::vector<Powerup*> activePowerups; // Vector array for powerup management
+sf::Texture powerupTexture; // Pre-loading powerup texture to ensure smooth gameplay
+/*----------------------------------------------------Initialization Functions------------------------------------------*/
 bool initializeFont() {
 
     if (font2.loadFromFile("C:/Windows/Fonts/Arial.ttf")) {
@@ -108,10 +113,10 @@ bool initializeSprites() {
     if (!initializeFont()) {
         std::cerr << "Failed to initialize font! Text will not be displayed." << std::endl;
     }
-
+    powerupTexture.loadFromFile("img/Powerup.png");
     scoreText.setFont(font2);
     scoreText.setCharacterSize(24);
-    scoreText.setFillColor(sf::Color::White);
+    scoreText.setFillColor(sf::Color::Black);
     scoreText.setPosition(20.f, window.getSize().y - 40.f);
     scoreText.setString("Score: 0");
 
@@ -292,6 +297,76 @@ bool StartMenu() {
     return false;
 }
 /*----------------------------------------------------Game Logic Functions---------------------------------------------*/
+
+// class Powerup to derive 2 further classes for 2 powerups
+class Powerup{
+    protected:
+    sf::Sprite powerup;
+    public:
+    Powerup(){
+        powerup.setTexture(powerupTexture); 
+        powerup.setScale(0.08f,0.08f);
+        float randomX = static_cast<float>(std::rand() % 600);
+        powerup.setPosition(randomX, 250.f);
+    }
+    void fall(){
+        powerup.move(0.f,1.5f); // to make the powerup move
+    }
+    void Spawn(){
+        window.draw(powerup);
+    }
+    virtual void Perform(){} // Actually activates the powerup
+
+    bool checkCollision(const sf::FloatRect& paddleBounds) {
+        return powerup.getGlobalBounds().intersects(paddleBounds); // Check if the power-up intersects with the paddle
+    }
+    sf::Vector2f getPosition() const {
+        return powerup.getPosition(); // returns position to be used in check
+    }
+};
+
+// making powerup1 (good)
+class DestroyBrickspower : public Powerup{
+    public:
+    void Perform() override{
+        int size = bricksLeft;
+        int removed = 0;
+        for(auto it = bricks.end()-1; it >= bricks.begin(); --it){ // iterating thorugh the vector of Brick
+            if(removed == size/3){ // removing 1/3 of current bricks
+                return;
+            }
+            else{
+                if(!it->isDestroyed){      // updating values of bricks and scoreboard
+                    it->isDestroyed = true;
+                    bricksLeft--; 
+                    score += 10;
+                    removed ++;
+                }
+            }
+        }
+    }
+};
+
+
+// making powerup2 (bad)
+class SpeedupBallpower: public Powerup{
+    public:
+    void Perform() override { // speeds up the ball
+        ballSpeed += 1.f;
+    }
+};
+
+// Function to create random powerup with a 40% chance of destroying bricks and 60% for speeding up the ball
+Powerup* createpowerup(){
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    int chance = std::rand()  % 100;
+    if(chance <= 40){  
+        return new DestroyBrickspower;
+    }
+    else{
+        return new SpeedupBallpower;
+    }
+}
 
 void resetGame() {
     // Reset ball
@@ -475,17 +550,16 @@ int main() {
     if (!initializeSprites()) {
         return -1;
     }
-    // Music settings
-    if(!backgroundMusic.openFromFile("Absolute-Class/City-of-Tears.ogg")){
+
+    // Music for menu
+    if(!backgroundMusic.openFromFile("Absolute-Class/Soul-Sanctum.ogg")){
         std::cerr << "Failed to load background music.\n";
     }
     backgroundMusic.setLoop(true);
     backgroundMusic.setVolume(10);
-    // Plays Music in Menu
     backgroundMusic.play();
-    // Menu loop and render
-    window.setFramerateLimit(60);
-    // Runs menu till start
+
+    // Menu loop
     while (!StartMenu()) {
         // Animate title
         float time = gameClock.getElapsedTime().asSeconds();
@@ -524,96 +598,114 @@ int main() {
     sf::Cursor Arrow;
     Arrow.loadFromSystem(sf::Cursor::Arrow);
     window.setMouseCursor(Arrow);
-    // Plays Music while the game is in play
-    if(!gameLost && !gameWon){
-        backgroundMusic.pause();
-        if(!backgroundMusic.openFromFile("Absolute-Class/Soul-Sanctum.ogg")){
-            std::cerr << "Failed to load background music.\n";
-        }
-        backgroundMusic.setLoop(true);
-        backgroundMusic.setVolume(10);
-        backgroundMusic.play();
+
+    // Main Game music
+    backgroundMusic.pause();
+    if(!backgroundMusic.openFromFile("Absolute-Class/City-of-Tears.ogg")){
+        std::cerr << "Failed to load game music.\n";
     }
-    else if(gameLost || gameWon){
-        backgroundMusic.pause();
-    }
-    //Game loop
+    backgroundMusic.play();
+
+    // Game clock for power-ups
+    sf::Clock powerupClock;
+    
+    // Main game loop
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
-                backgroundMusic.pause();
                 window.close();
             }
-            // Handle key presses
             if (event.type == sf::Event::KeyPressed) {
                 if (event.key.code == sf::Keyboard::Space && !startBall && !gameWon && !gameLost) {
                     startBall = true;
                 }
-
                 if ((gameWon || gameLost) && event.key.code == sf::Keyboard::R) {
                     resetGame();
                 }
-
                 if (event.key.code == sf::Keyboard::Escape) {
-                    backgroundMusic.pause();
                     window.close();
                 }
             }
         }
-        // Game logic only if game is active
+
+        // Game logic
         if (!gameWon && !gameLost) {
-            // Paddle movement
+            // Handle input and movement
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) &&
                 paddle.getPosition().x > 5) {
                 paddle.move(-moveSpeed, 0);
-                if (!startBall) {
-                    ball.move(-moveSpeed, 0);
-                }
+                if (!startBall) ball.move(-moveSpeed, 0);
             }
-
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) &&
                 paddle.getPosition().x + paddle.getGlobalBounds().width < window.getSize().x) {
                 paddle.move(moveSpeed, 0);
-                if (!startBall) {
-                    ball.move(moveSpeed, 0);
-                }
+                if (!startBall) ball.move(moveSpeed, 0);
             }
-
-            // Game logic
             handleBallMovement();
             checkPaddleCollision();
             checkBrickCollisions();
+            // Power-up spawning with timing of every 10 seconds
+            float powerupTime = powerupClock.getElapsedTime().asSeconds();
+            if (powerupTime >= 10.f && activePowerups.empty()) {
+                Powerup* newPU = createpowerup();
+                if (newPU) {
+                activePowerups.push_back(newPU);
+                powerupClock.restart();
+                }
+            }
+            // Update power-ups to make them fall and delete them eventually
+            for (auto it = activePowerups.begin(); it != activePowerups.end(); ) {
+                (*it)->fall();
+                
+                if ((*it)->checkCollision(paddle.getGlobalBounds())) {
+                    (*it)->Perform();
+                    delete *it;
+                    it = activePowerups.erase(it);
+                } 
+                else if ((*it)->getPosition().y > window.getSize().y) {
+                    delete *it;
+                    it = activePowerups.erase(it);
+                } 
+                else {
+                    ++it;
+                }
+            }
         }
 
-        // Clear the window
+        // Rendering
         window.clear(sf::Color(30, 30, 40));
 
-        // Draw all bricks
+        // Draw game objects in correct order
         for (const auto& brick : bricks) {
             drawGradientBrick(window, brick);
         }
-
-        // Draw paddle and ball
         window.draw(paddle);
         window.draw(ball);
-
-        // Draw UI elements
+        
+        // Draw power-ups LAST so they appear on top and a condition to only spawn them only when game is running
+        if(!gameLost && !gameWon){
+            for (auto& pu : activePowerups) {
+                pu->Spawn();
+            }
+        }
+        // Draw UI
         window.draw(scoreText);
-
-        // Draw game over message if needed
-        if (gameWon || gameLost) {
+        
+        if (gameWon || gameLost) { // to make sure to delete the powerups once game ends and display relevant texts
+            backgroundMusic.pause();
             sf::RectangleShape overlay(sf::Vector2f(window.getSize().x, window.getSize().y));
             overlay.setFillColor(sf::Color(0, 0, 0, 150));
+            for (auto* pu : activePowerups) delete pu; // Delete powerups in case of game over
             window.draw(overlay);
             window.draw(gameOverText);
             window.draw(restartText);
-            backgroundMusic.pause();
         }
 
-        // Display everything
         window.display();
-    } 
+    }
 
-    return 0;  
+    // Cleanup
+    for (auto* pu : activePowerups) delete pu;
+    return 0;
 }
