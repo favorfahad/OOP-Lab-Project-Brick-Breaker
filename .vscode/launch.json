@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run SFML App",
+      "name": "Run BrickBreaker App",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/Brick-Breaker.exe",
@@ -20,7 +20,7 @@
           "ignoreFailures": true
         }
       ],
-      "preLaunchTask": "Build SFML App"
+      "preLaunchTask": "Build BrickBreaker App"
     }
   ]
 }
