@@ -653,7 +653,7 @@ public:
                     }
                 }
                 // Power-up spawning with timing of every 10 seconds only when the ball starts to move
-                if( (ball->isStarted())){
+                if((ball->isStarted())){
                     float powerupTime = powerupClock.getElapsedTime().asSeconds();
                     if (powerupTime >= 10.f && activePowerups.empty()) { // creates a powerup when no other is present
                         Powerup* newPU = createpowerup(); 
@@ -662,6 +662,9 @@ public:
                             powerupClock.restart(); // restart the clock for another 10 second count
                         }
                     }
+                }
+                else{
+                    powerupClock.restart(); // reset the clock when the ball is not moving
                 }
                 // Update power-ups to make them fall and delete them eventually
                 for (auto it = activePowerups.begin(); it != activePowerups.end(); ) {
