@@ -291,9 +291,9 @@ private:
     sf::CircleShape rightCircle;
     sf::CircleShape leftCircle;
     std::vector<sf::CircleShape> dots;
-    sf::RectangleShape shadow1;
-    sf::RectangleShape shadow2;
-    sf::RectangleShape shadow3;
+    sf::Text shadow1;
+    sf::Text shadow2;
+    sf::Text shadow3;
     sf::Music backgroundMusic;
     sf::SoundBuffer buffer;
     sf::Sound sound;
@@ -401,6 +401,13 @@ public:
         title.setOutlineColor(sf::Color(20, 45, 75));
         title.setOutlineThickness(3);
         title.setPosition(tx, ty);
+
+        shadow1 = title; 
+        shadow2 = title; 
+        shadow3 = title;
+        shadow1.setFillColor(sf::Color(194, 231, 255)); shadow1.setPosition(tx + 4, ty + 4);
+        shadow2.setFillColor(sf::Color(194, 231, 255)); shadow2.setPosition(tx + 4, ty + 8);
+        shadow3.setFillColor(sf::Color(194, 231, 255)); shadow3.setPosition(tx + 4, ty + 10);
 
         std::srand(static_cast<unsigned>(std::time(0)));
         for (int i = 0; i < 80; ++i) {
