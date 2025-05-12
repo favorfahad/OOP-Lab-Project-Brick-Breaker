@@ -570,7 +570,7 @@ public:
         backgroundMusic.setLoop(true);
         backgroundMusic.setVolume(30);
         backgroundMusic.play();
-
+        ball->setStarted(false);
         // Menu loop
         while (!StartMenu()) {
             // Animate title
